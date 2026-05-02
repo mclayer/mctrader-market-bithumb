@@ -55,7 +55,7 @@ def test_get_candles_with_recorded_fixture() -> None:
     adapter = _adapter_with_payload(payload)
 
     start = datetime(2025, 4, 25, 0, 0, tzinfo=timezone.utc)
-    end = start + timedelta(hours=10)
+    end = start + timedelta(hours=5)
 
     candles = adapter.get_candles(Symbol(base="BTC", quote="KRW"), Timeframe.H1, start, end)
     assert len(candles) == 5
