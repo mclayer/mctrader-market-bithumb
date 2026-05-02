@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+      - name: Install dependencies
+        run: uv sync --all-extras
+      - name: Lint (ruff)
+        run: uv run ruff check src tests
+      - name: Type check (pyright)
+        run: uv run pyright
+      - name: Test
+        run: uv run pytest --cov=mctrader_market_bithumb --cov-report=xml --cov-report=term
+      - name: Coverage gate (60%)
+        run: |
+          uv run python -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('coverage.xml')
+          rate = float(tree.getroot().attrib['line-rate'])
+          pct = rate * 100
+          print(f'Coverage: {pct:.1f}%')
+          assert pct >= 60.0, f'Coverage {pct:.1f}% < 60% baseline (ADR-011)'
+          "
+
+  ci-live:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Run live capture (manual only, non-blocking)
+        run: echo "Live API capture placeholder — implement when scheduled job is ready"
