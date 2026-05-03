@@ -1,6 +1,6 @@
 [project]
 name = "mctrader-market-bithumb"
-version = "0.1.0"
+version = "0.2.0"
 description = "Bithumb HTTP + WS impl (public-only, ADR-008 align)"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -9,6 +9,7 @@ authors = [{ name = "mccho8865", email = "mccho8865@gmail.com" }]
 dependencies = [
     "mctrader-market @ git+https://github.com/mclayer/mctrader-market.git@main",
     "httpx>=0.27,<1",
+    "websockets>=12,<14",
     "pydantic>=2,<3",
 ]
 

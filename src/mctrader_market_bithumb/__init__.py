@@ -1,4 +1,4 @@
-"""mctrader-market-bithumb — Bithumb public OHLCV adapter."""
+"""mctrader-market-bithumb — Bithumb public OHLCV REST + WebSocket adapter."""
 
 from mctrader_market_bithumb.adapter import BithumbCandleProvider
 from mctrader_market_bithumb.client import BithumbHttpClient, RateLimitConfig, RetryConfig
@@ -21,13 +21,23 @@ from mctrader_market_bithumb.mapping import (
     normalize_row,
     symbol_to_bithumb_path,
 )
+from mctrader_market_bithumb.ws_client import BithumbWebSocketStream, MarketStream
+from mctrader_market_bithumb.ws_events import (
+    OrderbookDeltaEvent,
+    OrderbookSnapshotEvent,
+    StreamEvent,
+    TickerEvent,
+    TransactionEvent,
+)
+from mctrader_market_bithumb.ws_mapping import normalize_message
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "BithumbApiError",
     "BithumbCandleProvider",
     "BithumbHttpClient",
+    "BithumbWebSocketStream",
     "IDX_CLOSE",
     "IDX_HIGH",
     "IDX_LOW",
@@ -35,14 +45,21 @@ __all__ = [
     "IDX_TS_MS",
     "IDX_VOLUME",
     "InsufficientCoverageError",
+    "MarketStream",
+    "OrderbookDeltaEvent",
+    "OrderbookSnapshotEvent",
     "PublicOnlyViolationError",
     "ROW_LENGTH",
     "RateLimitConfig",
     "RateLimitedError",
     "RetryConfig",
     "SchemaMismatchError",
+    "StreamEvent",
+    "TickerEvent",
+    "TransactionEvent",
     "__version__",
     "bithumb_path_to_symbol",
+    "normalize_message",
     "normalize_row",
     "symbol_to_bithumb_path",
 ]

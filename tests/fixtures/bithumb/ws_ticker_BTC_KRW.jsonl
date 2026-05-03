@@ -1,0 +1,2 @@
+{"type":"ticker","content":{"symbol":"BTC_KRW","tickType":"1H","date":"1745539200000","openPrice":"100000000","closePrice":"100200000","highPrice":"100500000","lowPrice":"99500000","volume":"1.5","chgRate":"0.20"}}
+{"type":"ticker","content":{"symbol":"BTC_KRW","tickType":"1H","date":"1745542800000","openPrice":"100200000","closePrice":"100150000","highPrice":"100300000","lowPrice":"100100000","volume":"0.8","chgRate":"-0.05"}}
