@@ -113,7 +113,7 @@ class BithumbWebSocketStream:
                         event = normalize_message(payload, received_at=datetime.now(timezone.utc))
                         if event is not None:
                             yield event
-            except (websockets.ConnectionClosed, asyncio.TimeoutError, OSError) as exc:
+            except (websockets.ConnectionClosed, TimeoutError, OSError) as exc:
                 if self._closed:
                     return
                 delay = self._next_backoff(attempt)
@@ -131,7 +131,7 @@ class BithumbWebSocketStream:
         while True:
             try:
                 raw_text = await asyncio.wait_for(ws.recv(), timeout=self._stale_seconds)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("WS stale (%.0fs without message), forcing reconnect", self._stale_seconds)
                 await ws.close()
                 return
