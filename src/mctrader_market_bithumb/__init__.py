@@ -2,6 +2,7 @@
 
 from mctrader_market_bithumb.adapter import BithumbCandleProvider
 from mctrader_market_bithumb.client import BithumbHttpClient, RateLimitConfig, RetryConfig
+from mctrader_market_bithumb.rest_throttle import RestThrottle
 from mctrader_market_bithumb.exceptions import (
     BithumbApiError,
     InsufficientCoverageError,
@@ -31,7 +32,7 @@ from mctrader_market_bithumb.ws_events import (
 )
 from mctrader_market_bithumb.ws_mapping import normalize_message
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "BithumbApiError",
@@ -52,6 +53,7 @@ __all__ = [
     "ROW_LENGTH",
     "RateLimitConfig",
     "RateLimitedError",
+    "RestThrottle",
     "RetryConfig",
     "SchemaMismatchError",
     "StreamEvent",
