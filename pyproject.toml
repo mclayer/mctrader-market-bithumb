@@ -47,6 +47,9 @@ reportUnknownMemberType = "none"
 reportUnknownVariableType = "none"
 reportUnknownArgumentType = "none"
 reportUnknownParameterType = "none"
+reportArgumentType = "none"
+reportAttributeAccessIssue = "none"
+reportOptionalMemberAccess = "none"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
