@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 
 import httpx
@@ -60,9 +61,9 @@ def test_get_candles_with_recorded_fixture() -> None:
     candles = adapter.get_candles(Symbol(base="BTC", quote="KRW"), Timeframe.H1, start, end)
     assert len(candles) == 5
     assert candles[0].ts_utc == datetime(2025, 4, 25, 0, 0, tzinfo=timezone.utc)
-    # IDX 2 (close=100200000.00) vs IDX 3 (high=100500000.00) — non-standard order
-    assert str(candles[0].close) == "100200000.00"
-    assert str(candles[0].high) == "100500000.00"
+    # IDX 2 (close=100200000) vs IDX 3 (high=100500000) — Decimal38_18 quantizes to 18 places
+    assert candles[0].close == Decimal("100200000")
+    assert candles[0].high == Decimal("100500000")
     assert candles[0].quarantine_reason == "VALUE_ABSENCE_BITHUMB"
 
 

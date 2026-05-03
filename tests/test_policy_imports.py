@@ -26,6 +26,13 @@ FORBIDDEN_LITERALS = (
 ALLOWLIST = {
     "exceptions.py": (),
     "client.py": ("Authorization", "Api-Key", "Api-Sign", "X-BITHUMB-Api-Key", "X-BITHUMB-Api-Sign"),
+    "ws_secret_guard.py": (
+        "Authorization",
+        "Api-Key",
+        "Api-Sign",
+        "X-BITHUMB-Api-Key",
+        "X-BITHUMB-Api-Sign",
+    ),
     "__init__.py": (),
 }
 
