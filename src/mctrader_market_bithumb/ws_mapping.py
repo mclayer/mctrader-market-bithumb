@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -21,15 +21,42 @@ from mctrader_market_bithumb.ws_events import (
 )
 
 
+_KST = timezone(timedelta(hours=9))
+
+
 def _parse_event_time(value: object) -> datetime:
-    """Bithumb provides string ts in ms or ISO; default = received_at fallback if missing."""
+    """Parse Bithumb timestamp formats observed in live envelopes:
+
+    - 16-digit numeric string (microsecond-epoch UTC) — orderbookdepth `content.datetime`
+    - 13-digit numeric string (millisecond-epoch UTC) — legacy / ticker `content.timestamp`
+    - 10-digit numeric string (second-epoch UTC) — defensive
+    - ``"YYYY-MM-DD HH:MM:SS[.ffffff]"`` (KST naive datetime) — transaction `contDtm`
+    - ``int`` / ``float`` — treated as ms-epoch (legacy)
+
+    Raises :class:`SchemaMismatchError` for unrecognized formats.
+    """
+    if isinstance(value, bool):
+        # bool is a subclass of int, but it's never a valid timestamp.
+        raise SchemaMismatchError(f"invalid event_time: {value!r}")
     if isinstance(value, (int, float)):
         return datetime.fromtimestamp(int(value) / 1000.0, tz=timezone.utc)
     if isinstance(value, str):
-        try:
-            return datetime.fromtimestamp(int(value) / 1000.0, tz=timezone.utc)
-        except ValueError:
-            pass
+        stripped = value.strip()
+        # Numeric epoch strings: dispatch by digit count.
+        if stripped.isdigit():
+            n = int(stripped)
+            if len(stripped) >= 16:
+                return datetime.fromtimestamp(n / 1_000_000.0, tz=timezone.utc)
+            if len(stripped) >= 13:
+                return datetime.fromtimestamp(n / 1_000.0, tz=timezone.utc)
+            return datetime.fromtimestamp(n, tz=timezone.utc)
+        # KST naive datetime string (Bithumb transaction.contDtm).
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+            try:
+                naive = datetime.strptime(stripped, fmt)
+            except ValueError:
+                continue
+            return naive.replace(tzinfo=_KST).astimezone(timezone.utc)
     raise SchemaMismatchError(f"invalid event_time: {value!r}")
 
 
@@ -60,11 +87,14 @@ def normalize_message(raw: dict[str, Any], *, received_at: datetime) -> StreamEv
     symbol_raw = content.get("symbol")
     symbol = _resolve_symbol(symbol_raw) if symbol_raw is not None else None
 
-    event_time = (
-        _parse_event_time(content.get("date") or content.get("dateTime") or content.get("timestamp"))
-        if content.get("date") or content.get("dateTime") or content.get("timestamp")
-        else received_at
+    # Bithumb live: `datetime` (lowercase, us-epoch) on orderbookdepth; legacy `dateTime` / `date` / `timestamp`
+    ts_raw = (
+        content.get("datetime")
+        or content.get("dateTime")
+        or content.get("date")
+        or content.get("timestamp")
     )
+    event_time = _parse_event_time(ts_raw) if ts_raw else received_at
 
     if msg_type == "ticker":
         if symbol is None:
@@ -86,11 +116,16 @@ def normalize_message(raw: dict[str, Any], *, received_at: datetime) -> StreamEv
         )
 
     if msg_type == "orderbookdepth":
-        if symbol is None:
-            raise SchemaMismatchError("orderbookdepth missing symbol")
+        # Live Bithumb envelope keeps symbol on each list entry, not on content. Fall back
+        # to content.symbol for forward-compat if the envelope ever moves it up.
         changes_raw = content.get("list") or []
-        if not isinstance(changes_raw, list):
-            raise SchemaMismatchError("orderbookdepth list must be array")
+        if not isinstance(changes_raw, list) or not changes_raw:
+            raise SchemaMismatchError("orderbookdepth list must be non-empty array")
+        if symbol is None:
+            first = changes_raw[0]
+            if not isinstance(first, dict) or first.get("symbol") is None:
+                raise SchemaMismatchError("orderbookdepth missing symbol")
+            symbol = _resolve_symbol(first["symbol"])
         changes = [
             _OrderbookChange(
                 side="bid" if entry.get("orderType") == "bid" else "ask",
