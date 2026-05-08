@@ -4,6 +4,9 @@
 project:
   name: mctrader
 
+# CFP-128 / ADR-033 — none (library + WS adapter, no Docker artifacts)
+infra_strategy: none
+
 github:
   org: mclayer
   repo: mctrader-market-bithumb
