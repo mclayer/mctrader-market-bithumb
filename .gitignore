@@ -13,3 +13,6 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# git worktrees (ADR-019)
+.worktrees/
