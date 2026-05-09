@@ -123,6 +123,52 @@ class BithumbHttpClient:
         path = f"/candlestick/{symbol_path}/{chart_interval}"
         return self._request_with_retry("GET", path)
 
+    def get_ticker_all_krw(self) -> Any:
+        """Fetch raw response body for ``/ticker/ALL_KRW``.
+
+        Returns the full ticker snapshot for all KRW pairs including ``acc_trade_value_24H``
+        and ``acc_trade_price_24H``. Used as the primary source for :meth:`fetch_assetsstatus_all`.
+        """
+        return self._request_with_retry("GET", "/ticker/ALL_KRW")
+
+    def fetch_assetsstatus_all(self) -> dict[str, str]:
+        """Fetch asset deposit/withdrawal status for all currencies.
+
+        Calls ``GET /assetsstatus/multichain/ALL`` and returns a mapping of
+        ``currency_code -> asset_status`` where ``asset_status`` is one of
+        ``"1"`` (normal) or ``"0"`` (suspended/maintenance).
+
+        Raises :class:`SchemaMismatchError` when the response schema is unexpected.
+        Raises :class:`BithumbApiError` on HTTP failure or non-"0000" status code.
+        """
+        raw = self._request_with_retry("GET", "/assetsstatus/multichain/ALL")
+        if not isinstance(raw, dict):
+            raise SchemaMismatchError(f"assetsstatus: expected dict response, got {type(raw).__name__}")
+        status_code = raw.get("status")
+        if status_code != "0000":
+            raise BithumbApiError(
+                f"assetsstatus API returned non-0000 status: {status_code!r} "
+                f"message={raw.get('message', '')!r}"
+            )
+        data = raw.get("data")
+        if not isinstance(data, list):
+            raise SchemaMismatchError(
+                f"assetsstatus: expected data=list, got {type(data).__name__}"
+            )
+        result: dict[str, str] = {}
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            currency = item.get("currency")
+            # depositStatus + withdrawalStatus: "1" = active, "0" = suspended.
+            # We expose the more restrictive (min) of the two as a single asset_status.
+            deposit = str(item.get("depositStatus", "0"))
+            withdrawal = str(item.get("withdrawalStatus", "0"))
+            combined = "1" if deposit == "1" and withdrawal == "1" else "0"
+            if isinstance(currency, str) and currency:
+                result[currency] = combined
+        return result
+
     def _request_with_retry(self, method: str, path: str) -> Any:
         last_exc: Exception | None = None
         for attempt in range(self._retry.max_attempts):
