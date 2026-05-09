@@ -36,7 +36,8 @@ def assert_url_allowed(url: str) -> None:
 
 
 def assert_no_secret_headers(headers: dict[str, str]) -> None:
-    forbidden = {h for h in headers if h in FORBIDDEN_HEADERS}
+    _forbidden_lower = {h.lower() for h in FORBIDDEN_HEADERS}
+    forbidden = {h for h in headers if h.lower() in _forbidden_lower}
     if forbidden:
         raise PublicOnlyViolationError(
             f"forbidden WS handshake header: {sorted(forbidden)} (ADR-008 D5)"
@@ -49,7 +50,8 @@ def assert_subscribe_payload_safe(payload: dict[str, Any]) -> None:
         raise PublicOnlyViolationError(
             f"subscribe type {sub_type!r} not in allowlist {sorted(ALLOWED_SUBSCRIBE_TYPES)}"
         )
-    forbidden = {k for k in payload if k in FORBIDDEN_SUBSCRIBE_KEYS}
+    _forbidden_lower = {k.lower() for k in FORBIDDEN_SUBSCRIBE_KEYS}
+    forbidden = {k for k in payload if k.lower() in _forbidden_lower}
     if forbidden:
         raise PublicOnlyViolationError(
             f"forbidden subscribe payload key: {sorted(forbidden)}"

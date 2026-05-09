@@ -99,16 +99,20 @@ def normalize_message(raw: dict[str, Any], *, received_at: datetime) -> StreamEv
     if msg_type == "ticker":
         if symbol is None:
             raise SchemaMismatchError("ticker missing symbol")
+        _required_price_fields = ("openPrice", "highPrice", "lowPrice", "closePrice", "volume")
+        for _field in _required_price_fields:
+            if content.get(_field) is None:
+                raise SchemaMismatchError(f"ticker missing required field: {_field!r}")
         return TickerEvent(
             exchange="bithumb",
             symbol=symbol,
             event_time=event_time,
             received_at=received_at,
-            open=Decimal(str(content.get("openPrice", "0"))),
-            high=Decimal(str(content.get("highPrice", "0"))),
-            low=Decimal(str(content.get("lowPrice", "0"))),
-            close=Decimal(str(content.get("closePrice", "0"))),
-            volume=Decimal(str(content.get("volume", "0"))),
+            open=Decimal(str(content["openPrice"])),
+            high=Decimal(str(content["highPrice"])),
+            low=Decimal(str(content["lowPrice"])),
+            close=Decimal(str(content["closePrice"])),
+            volume=Decimal(str(content["volume"])),
             chg_rate=(
                 Decimal(str(content["chgRate"])) if content.get("chgRate") is not None else None
             ),
@@ -126,15 +130,23 @@ def normalize_message(raw: dict[str, Any], *, received_at: datetime) -> StreamEv
             if not isinstance(first, dict) or first.get("symbol") is None:
                 raise SchemaMismatchError("orderbookdepth missing symbol")
             symbol = _resolve_symbol(first["symbol"])
-        changes = [
-            _OrderbookChange(
-                side="bid" if entry.get("orderType") == "bid" else "ask",
-                price=Decimal(str(entry["price"])),
-                quantity=Decimal(str(entry["quantity"])),
+        _known_order_types: frozenset[str] = frozenset({"bid", "ask"})
+        changes = []
+        for entry in changes_raw:
+            if not isinstance(entry, dict):
+                raise SchemaMismatchError(
+                    f"orderbookdepth list entry must be dict, got {type(entry).__name__}"
+                )
+            order_type = entry.get("orderType")
+            if order_type not in _known_order_types:
+                raise SchemaMismatchError(f"Unknown orderType: {order_type!r}")
+            changes.append(
+                _OrderbookChange(
+                    side=order_type,
+                    price=Decimal(str(entry["price"])),
+                    quantity=Decimal(str(entry["quantity"])),
+                )
             )
-            for entry in changes_raw
-            if isinstance(entry, dict)
-        ]
         return OrderbookDeltaEvent(
             exchange="bithumb",
             symbol=symbol,

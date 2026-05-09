@@ -19,5 +19,5 @@ class InsufficientCoverageError(BithumbApiError):
     """Response window does not cover ``[start, end)`` requested interval."""
 
 
-class PublicOnlyViolationError(Exception):
+class PublicOnlyViolationError(BithumbApiError):
     """Forbidden header / non-public URL detected (ADR-008 D5)."""
