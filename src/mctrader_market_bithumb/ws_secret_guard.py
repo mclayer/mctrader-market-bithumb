@@ -13,6 +13,7 @@ FORBIDDEN_HEADERS: frozenset[str] = frozenset(
         "Authorization",
         "Api-Key",
         "Api-Sign",
+        "X-Api-Key",
         "X-BITHUMB-Api-Key",
         "X-BITHUMB-Api-Sign",
         "X-BITHUMB-Api-Nonce",
