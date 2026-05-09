@@ -144,36 +144,26 @@ def normalize_message(raw: dict[str, Any], *, received_at: datetime) -> StreamEv
             raw=raw,
         )
 
-    if msg_type == "orderbooksnapshot":
-        # Wiretap-confirmed payload (2026-05-09 P2-F-002):
-        # {type:"orderbooksnapshot", content:{symbol, datetime:<16-digit-micro-epoch>,
-        #  asks:[[price,qty]×30], bids:[[price,qty]×30]}}
-        # asks/bids are lists of 2-element lists [price_str, qty_str].
+    if msg_type == "orderbook_snapshot":
         if symbol is None:
-            raise SchemaMismatchError("orderbooksnapshot missing symbol")
+            raise SchemaMismatchError("orderbook_snapshot missing symbol")
         bids_raw = content.get("bids") or []
         asks_raw = content.get("asks") or []
-
-        def _parse_level(entry: object) -> _OrderbookLevel:
-            if isinstance(entry, (list, tuple)) and len(entry) >= 2:
-                return _OrderbookLevel(
-                    price=Decimal(str(entry[0])),
-                    quantity=Decimal(str(entry[1])),
-                )
-            if isinstance(entry, dict):
-                return _OrderbookLevel(
-                    price=Decimal(str(entry["price"])),
-                    quantity=Decimal(str(entry["quantity"])),
-                )
-            raise SchemaMismatchError(f"orderbooksnapshot level entry unrecognized: {entry!r}")
-
         return OrderbookSnapshotEvent(
             exchange="bithumb",
             symbol=symbol,
             event_time=event_time,
             received_at=received_at,
-            bids=[_parse_level(b) for b in bids_raw],
-            asks=[_parse_level(a) for a in asks_raw],
+            bids=[
+                _OrderbookLevel(price=Decimal(str(b["price"])), quantity=Decimal(str(b["quantity"])))
+                for b in bids_raw
+                if isinstance(b, dict)
+            ],
+            asks=[
+                _OrderbookLevel(price=Decimal(str(a["price"])), quantity=Decimal(str(a["quantity"])))
+                for a in asks_raw
+                if isinstance(a, dict)
+            ],
             raw=raw,
         )
 

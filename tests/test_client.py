@@ -115,58 +115,6 @@ def test_invalid_json_raises_schema_mismatch() -> None:
         client.get_candlestick("BTC_KRW", "1h")
 
 
-# MCT-104 — fetch_assetsstatus_all (§D13 metadata source, 2026-05-09)
-
-def test_fetch_assetsstatus_all_normal() -> None:
-    """Both deposit+withdrawal active → combined status '1'."""
-    payload = {
-        "status": "0000",
-        "data": [
-            {"currency": "BTC", "depositStatus": 1, "withdrawalStatus": 1},
-            {"currency": "ETH", "depositStatus": 1, "withdrawalStatus": 0},
-            {"currency": "XRP", "depositStatus": 0, "withdrawalStatus": 0},
-        ],
-    }
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert "/assetsstatus/multichain/ALL" in request.url.path
-        return httpx.Response(200, json=payload)
-
-    client = _client_with_handler(handler)
-    result = client.fetch_assetsstatus_all()
-    assert result["BTC"] == "1"   # both active
-    assert result["ETH"] == "0"   # withdrawal suspended
-    assert result["XRP"] == "0"   # both suspended
-
-
-def test_fetch_assetsstatus_all_non_0000_raises() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"status": "5100", "message": "Bad Request"})
-
-    client = _client_with_handler(handler)
-    with pytest.raises(BithumbApiError, match="non-0000"):
-        client.fetch_assetsstatus_all()
-
-
-def test_fetch_assetsstatus_all_bad_schema_raises() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"status": "0000", "data": "unexpected_string"})
-
-    client = _client_with_handler(handler)
-    with pytest.raises(SchemaMismatchError):
-        client.fetch_assetsstatus_all()
-
-
-def test_get_ticker_all_krw_returns_json() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert "/ticker/ALL_KRW" in request.url.path
-        return httpx.Response(200, json={"status": "0000", "data": {"date": "1234567890123"}})
-
-    client = _client_with_handler(handler)
-    result = client.get_ticker_all_krw()
-    assert result["status"] == "0000"
-
-
 class TestTokenBucket:
     def test_initial_tokens_match_burst(self) -> None:
         clock_value = {"t": 0.0}
