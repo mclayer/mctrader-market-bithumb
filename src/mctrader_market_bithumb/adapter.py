@@ -93,8 +93,8 @@ def _parse_orderbook_envelope(payload: Any) -> dict:
     return data
 
 
-def _parse_orderbook_levels(raw_levels: Any, side: str) -> list[OrderBookLevel]:
-    """Parse a list of ``{"price": str, "quantity": str}`` dicts into ``OrderBookLevel`` lists."""
+def _parse_orderbook_levels(raw_levels: Any, side: str) -> tuple[OrderBookLevel, ...]:
+    """Parse a list of ``{"price": str, "quantity": str}`` dicts into ``OrderBookLevel`` tuples."""
     if not isinstance(raw_levels, list):
         raise SchemaMismatchError(f"orderbook {side} must be list, got {type(raw_levels).__name__}")
     levels: list[OrderBookLevel] = []
@@ -110,7 +110,7 @@ def _parse_orderbook_levels(raw_levels: Any, side: str) -> list[OrderBookLevel]:
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise SchemaMismatchError(f"orderbook {side} entry parse failed: {exc}") from exc
-    return levels
+    return tuple(levels)
 
 
 class BithumbOrderBookProvider:

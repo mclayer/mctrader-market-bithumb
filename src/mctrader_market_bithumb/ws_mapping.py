@@ -152,7 +152,7 @@ def normalize_message(raw: dict[str, Any], *, received_at: datetime) -> StreamEv
             symbol=symbol,
             event_time=event_time,
             received_at=received_at,
-            changes=changes,
+            changes=tuple(changes),
             raw=raw,
         )
 
@@ -184,8 +184,8 @@ def normalize_message(raw: dict[str, Any], *, received_at: datetime) -> StreamEv
             symbol=symbol,
             event_time=event_time,
             received_at=received_at,
-            bids=[_parse_level(b) for b in bids_raw],
-            asks=[_parse_level(a) for a in asks_raw],
+            bids=tuple(_parse_level(b) for b in bids_raw),
+            asks=tuple(_parse_level(a) for a in asks_raw),
             raw=raw,
         )
 
