@@ -1,4 +1,4 @@
-"""BithumbCandleProvider contract tests — Protocol satisfaction + envelope parsing + coverage check."""
+"""BithumbCandleProvider + BithumbOrderBookProvider contract tests — Protocol satisfaction + envelope parsing + coverage check."""
 
 from __future__ import annotations
 
@@ -9,10 +9,11 @@ from pathlib import Path
 
 import httpx
 
-from mctrader_market.providers import CandleProvider
+from mctrader_market.providers import CandleProvider, OrderBookProvider
+from mctrader_market.orderbook import OrderBookModel
 from mctrader_market.types import Symbol, Timeframe
 
-from mctrader_market_bithumb.adapter import BithumbCandleProvider
+from mctrader_market_bithumb.adapter import BithumbCandleProvider, BithumbOrderBookProvider
 from mctrader_market_bithumb.client import (
     BithumbHttpClient,
     RateLimitConfig,
@@ -111,3 +112,56 @@ def test_empty_data_raises_insufficient_coverage() -> None:
             datetime(2025, 4, 25, 0, 0, tzinfo=timezone.utc),
             datetime(2025, 4, 25, 5, 0, tzinfo=timezone.utc),
         )
+
+
+# ── BithumbOrderBookProvider tests ─────────────────────────────────────────────
+
+def _orderbook_provider_with_payload(payload: dict) -> BithumbOrderBookProvider:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    transport = httpx.MockTransport(handler)
+    client = BithumbHttpClient(
+        client=httpx.Client(base_url="https://api.bithumb.com/public", transport=transport),
+        rate_limit=RateLimitConfig(rate_per_second=1000, burst=100),
+        retry=RetryConfig(max_attempts=1, backoff_base_seconds=0.0),
+        sleep=lambda _: None,
+    )
+    return BithumbOrderBookProvider(client=client)
+
+
+def test_orderbook_provider_satisfies_protocol() -> None:
+    """BithumbOrderBookProvider must satisfy the OrderBookProvider protocol (runtime_checkable)."""
+    provider = _orderbook_provider_with_payload(
+        {"status": "0000", "data": {"bids": [], "asks": []}}
+    )
+    assert isinstance(provider, OrderBookProvider)
+
+
+def test_orderbook_provider_parses_rest_response() -> None:
+    """Mock REST orderbook response with bids/asks must be parsed into an OrderBookModel correctly."""
+    payload = {
+        "status": "0000",
+        "data": {
+            "bids": [
+                {"price": "100000000", "quantity": "0.5"},
+                {"price": "99900000", "quantity": "1.2"},
+            ],
+            "asks": [
+                {"price": "100100000", "quantity": "0.3"},
+                {"price": "100200000", "quantity": "2.0"},
+            ],
+        },
+    }
+    provider = _orderbook_provider_with_payload(payload)
+    result = provider.get_orderbook(Symbol(base="BTC", quote="KRW"))
+
+    assert isinstance(result, OrderBookModel)
+    assert result.exchange == "bithumb"
+    assert result.symbol == Symbol(base="BTC", quote="KRW")
+    assert len(result.bids) == 2
+    assert len(result.asks) == 2
+    assert result.bids[0].price == Decimal("100000000")
+    assert result.bids[0].quantity == Decimal("0.5")
+    assert result.asks[0].price == Decimal("100100000")
+    assert result.asks[0].quantity == Decimal("0.3")

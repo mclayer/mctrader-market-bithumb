@@ -173,3 +173,40 @@ def test_orderbooksnapshot_camelcase_rejected() -> None:
             {"type": "orderbookSnapshot", "content": {"symbol": "BTC_KRW"}},
             received_at=RECEIVED,
         )
+
+
+def test_ticker_missing_price_field_raises_schema_mismatch() -> None:
+    """Ticker message with a missing required price field must raise SchemaMismatchError, not return Decimal('0')."""
+    raw = {
+        "type": "ticker",
+        "content": {
+            "symbol": "BTC_KRW",
+            "openPrice": "100000000",
+            "highPrice": "100500000",
+            "lowPrice": "99800000",
+            # closePrice intentionally omitted
+            "volume": "10.5",
+        },
+    }
+    with pytest.raises(SchemaMismatchError):
+        normalize_message(raw, received_at=RECEIVED)
+
+
+def test_orderbookdepth_unknown_ordertype_raises_schema_mismatch() -> None:
+    """orderbookdepth entry with an unknown orderType must raise SchemaMismatchError."""
+    raw = {
+        "type": "orderbookdepth",
+        "content": {
+            "list": [
+                {
+                    "symbol": "BTC_KRW",
+                    "orderType": "unknown_side",
+                    "price": "100000000",
+                    "quantity": "0.5",
+                    "datetime": "1778154976506519",
+                },
+            ],
+        },
+    }
+    with pytest.raises(SchemaMismatchError):
+        normalize_message(raw, received_at=RECEIVED)

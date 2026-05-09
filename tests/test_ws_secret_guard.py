@@ -65,3 +65,15 @@ def test_subscribe_rejects_authorization_payload_key() -> None:
 def test_forbidden_headers_includes_bithumb() -> None:
     assert "X-BITHUMB-Api-Sign" in FORBIDDEN_HEADERS
     assert "Api-Key" in FORBIDDEN_HEADERS
+
+
+def test_handshake_header_guard_rejects_lowercase_forbidden() -> None:
+    """Lowercase variant of a forbidden header must still be rejected."""
+    with pytest.raises(PublicOnlyViolationError):
+        assert_no_secret_headers({"x-api-key": "secret"})
+
+
+def test_handshake_header_guard_rejects_mixed_case_forbidden() -> None:
+    """Mixed-case variant of a forbidden header must still be rejected."""
+    with pytest.raises(PublicOnlyViolationError):
+        assert_no_secret_headers({"X-Api-Key": "secret"})

@@ -167,6 +167,27 @@ def test_get_ticker_all_krw_returns_json() -> None:
     assert result["status"] == "0000"
 
 
+def test_read_error_retries_and_raises_bithumb_api_error() -> None:
+    """httpx.ReadError (a TransportError subclass) must trigger retry logic and ultimately raise BithumbApiError."""
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        raise httpx.ReadError("connection reset", request=request)
+
+    transport = httpx.MockTransport(handler)
+    client = BithumbHttpClient(
+        client=httpx.Client(base_url="https://api.bithumb.com/public", transport=transport),
+        rate_limit=RateLimitConfig(rate_per_second=1000, burst=100),
+        retry=RetryConfig(max_attempts=3, backoff_base_seconds=0.0),
+        sleep=lambda _: None,
+    )
+    with pytest.raises(BithumbApiError, match="transient"):
+        client.get_candlestick("BTC_KRW", "1h")
+    # All 3 attempts must have been made before giving up
+    assert calls["n"] == 3
+
+
 class TestTokenBucket:
     def test_initial_tokens_match_burst(self) -> None:
         clock_value = {"t": 0.0}

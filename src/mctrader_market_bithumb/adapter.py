@@ -29,7 +29,7 @@ def _parse_envelope(payload: Any) -> list[list]:
         raise SchemaMismatchError(f"envelope must be dict, got {type(payload).__name__}")
     status = payload.get("status")
     if status != "0000":
-        raise BithumbApiError(f"non-OK status: {status!r} message={payload.get('message', '')!r}")
+        raise SchemaMismatchError(f"non-OK status: {status!r} message={payload.get('message', '')!r}")
     data = payload.get("data")
     if not isinstance(data, list):
         raise SchemaMismatchError(f"data must be list, got {type(data).__name__}")
@@ -93,8 +93,8 @@ def _parse_orderbook_envelope(payload: Any) -> dict:
     return data
 
 
-def _parse_orderbook_levels(raw_levels: Any, side: str) -> tuple[OrderBookLevel, ...]:
-    """Parse a list of ``{"price": str, "quantity": str}`` dicts into ``OrderBookLevel`` tuples."""
+def _parse_orderbook_levels(raw_levels: Any, side: str) -> list[OrderBookLevel]:
+    """Parse a list of ``{"price": str, "quantity": str}`` dicts into ``OrderBookLevel`` lists."""
     if not isinstance(raw_levels, list):
         raise SchemaMismatchError(f"orderbook {side} must be list, got {type(raw_levels).__name__}")
     levels: list[OrderBookLevel] = []
@@ -110,7 +110,7 @@ def _parse_orderbook_levels(raw_levels: Any, side: str) -> tuple[OrderBookLevel,
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise SchemaMismatchError(f"orderbook {side} entry parse failed: {exc}") from exc
-    return tuple(levels)
+    return levels
 
 
 class BithumbOrderBookProvider:
