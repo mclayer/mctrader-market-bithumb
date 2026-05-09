@@ -51,7 +51,13 @@ class RestThrottle:
                     await asyncio.sleep(wait_seconds)
 
     def in_flight_count(self) -> int:
-        """Inspector: count of timestamps currently within window (sync, monotonic-now)."""
+        """Inspector: count of timestamps currently within window (sync, monotonic-now).
+
+        Read-only — does NOT evict from the shared deque to avoid a data race with the
+        async ``acquire()`` path which holds ``_lock`` during eviction.  The count may
+        therefore be a slight over-estimate when called concurrently with ``acquire()``,
+        which is acceptable for observability/metrics use.
+        """
         now = time.monotonic()
-        self._evict(now=now)
-        return len(self._events)
+        cutoff = now - self._window_seconds
+        return sum(1 for ts in self._events if ts >= cutoff)
