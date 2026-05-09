@@ -1,15 +1,18 @@
-"""BithumbCandleProvider — implements ``mctrader_market.providers.CandleProvider``."""
+"""BithumbCandleProvider + BithumbOrderBookProvider — implements mctrader_market providers."""
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from mctrader_market.candle import CandleModel
+from mctrader_market.orderbook import OrderBookLevel, OrderBookModel
 from mctrader_market.types import Symbol, Timeframe
 
 from mctrader_market_bithumb.client import BithumbHttpClient
 from mctrader_market_bithumb.exceptions import (
+    BithumbApiError,
     InsufficientCoverageError,
     SchemaMismatchError,
 )
@@ -26,7 +29,7 @@ def _parse_envelope(payload: Any) -> list[list]:
         raise SchemaMismatchError(f"envelope must be dict, got {type(payload).__name__}")
     status = payload.get("status")
     if status != "0000":
-        raise SchemaMismatchError(f"non-OK status: {status!r}")
+        raise BithumbApiError(f"non-OK status: {status!r} message={payload.get('message', '')!r}")
     data = payload.get("data")
     if not isinstance(data, list):
         raise SchemaMismatchError(f"data must be list, got {type(data).__name__}")
@@ -75,3 +78,67 @@ class BithumbCandleProvider:
             raise InsufficientCoverageError(
                 f"last candle {candles[-1].ts_utc} too far before end={end} (gap={last_gap})"
             )
+
+
+def _parse_orderbook_envelope(payload: Any) -> dict:
+    """Bithumb orderbook envelope: ``{"status": "0000", "data": {"bids": [...], "asks": [...], ...}}``."""
+    if not isinstance(payload, dict):
+        raise SchemaMismatchError(f"orderbook envelope must be dict, got {type(payload).__name__}")
+    status = payload.get("status")
+    if status != "0000":
+        raise BithumbApiError(f"non-OK status: {status!r} message={payload.get('message', '')!r}")
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise SchemaMismatchError(f"orderbook data must be dict, got {type(data).__name__}")
+    return data
+
+
+def _parse_orderbook_levels(raw_levels: Any, side: str) -> tuple[OrderBookLevel, ...]:
+    """Parse a list of ``{"price": str, "quantity": str}`` dicts into ``OrderBookLevel`` tuples."""
+    if not isinstance(raw_levels, list):
+        raise SchemaMismatchError(f"orderbook {side} must be list, got {type(raw_levels).__name__}")
+    levels: list[OrderBookLevel] = []
+    for entry in raw_levels:
+        if not isinstance(entry, dict):
+            raise SchemaMismatchError(f"orderbook {side} entry must be dict, got {type(entry).__name__}")
+        try:
+            levels.append(
+                OrderBookLevel(
+                    price=Decimal(str(entry["price"])),
+                    quantity=Decimal(str(entry["quantity"])),
+                )
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise SchemaMismatchError(f"orderbook {side} entry parse failed: {exc}") from exc
+    return tuple(levels)
+
+
+class BithumbOrderBookProvider:
+    """Public Bithumb orderbook snapshot provider — implements ``OrderBookProvider``.
+
+    Calls ``GET /orderbook/{symbol_path}`` and maps the response to ``OrderBookModel``.
+    The ``ts_utc`` is set to the current UTC time at the point of the response, as Bithumb's
+    public orderbook endpoint does not include a server-side timestamp in the data envelope.
+    """
+
+    def __init__(self, client: BithumbHttpClient | None = None) -> None:
+        self._client = client or BithumbHttpClient()
+
+    def get_orderbook(self, symbol: Symbol) -> OrderBookModel:
+        """Fetch a full orderbook snapshot for the given symbol.
+
+        Raises :class:`BithumbApiError` on non-"0000" envelope status or HTTP failures.
+        Raises :class:`SchemaMismatchError` when the response structure is unexpected.
+        """
+        path = symbol_to_bithumb_path(symbol)
+        raw_payload = self._client.get_orderbook(path)
+        data = _parse_orderbook_envelope(raw_payload)
+        bids = _parse_orderbook_levels(data.get("bids", []), "bids")
+        asks = _parse_orderbook_levels(data.get("asks", []), "asks")
+        return OrderBookModel(
+            ts_utc=datetime.now(timezone.utc),
+            exchange="bithumb",
+            symbol=symbol,
+            bids=bids,
+            asks=asks,
+        )

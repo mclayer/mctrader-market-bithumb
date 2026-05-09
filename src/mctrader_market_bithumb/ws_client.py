@@ -81,6 +81,7 @@ class BithumbWebSocketStream:
 
         self._connection: Any | None = None
         self._closed = False
+        self._last_ts: dict[str, datetime] = {}
 
     async def __aenter__(self) -> "BithumbWebSocketStream":
         return self
@@ -104,6 +105,9 @@ class BithumbWebSocketStream:
                 async with websockets.connect(self._url, extra_headers=self._extra_headers or None) as ws:
                     self._connection = ws
                     attempt = 0
+                    # Reset per-symbol timestamp tracker on (re)connect so the first
+                    # message after reconnect is always accepted regardless of order.
+                    self._last_ts.clear()
                     await self._send_subscriptions(ws)
                     async for raw_text in self._iter_with_stale_guard(ws):
                         try:
@@ -112,6 +116,25 @@ class BithumbWebSocketStream:
                             raise SchemaMismatchError(f"WS payload not JSON: {exc}") from exc
                         event = normalize_message(payload, received_at=datetime.now(timezone.utc))
                         if event is not None:
+                            sym_key = f"{event.symbol.base}_{event.symbol.quote}"
+                            event_ts = event.event_time
+                            prev_ts = self._last_ts.get(sym_key)
+                            if prev_ts is not None and event_ts <= prev_ts:
+                                if event_ts == prev_ts:
+                                    logger.debug(
+                                        "WS duplicate skipped: symbol=%s ts=%s",
+                                        sym_key,
+                                        event_ts,
+                                    )
+                                else:
+                                    logger.warning(
+                                        "WS out-of-order message: symbol=%s ts=%s <= last=%s",
+                                        sym_key,
+                                        event_ts,
+                                        prev_ts,
+                                    )
+                                continue
+                            self._last_ts[sym_key] = event_ts
                             yield event
             except (websockets.ConnectionClosed, TimeoutError, OSError) as exc:
                 if self._closed:

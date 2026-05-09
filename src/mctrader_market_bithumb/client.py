@@ -30,6 +30,8 @@ FORBIDDEN_HEADERS: frozenset[str] = frozenset(
     }
 )
 
+FORBIDDEN_HEADER_NAMES_LOWER: frozenset[str] = frozenset(h.lower() for h in FORBIDDEN_HEADERS)
+
 
 @dataclass
 class RateLimitConfig:
@@ -76,7 +78,7 @@ class _TokenBucket:
 
 
 def _assert_no_secret_headers(headers: dict[str, str]) -> None:
-    forbidden_present = {h for h in headers if h in FORBIDDEN_HEADERS}
+    forbidden_present = {h for h in headers if h.lower() in FORBIDDEN_HEADER_NAMES_LOWER}
     if forbidden_present:
         raise PublicOnlyViolationError(
             f"forbidden header present: {sorted(forbidden_present)} (ADR-008 D5)"
@@ -121,6 +123,15 @@ class BithumbHttpClient:
     def get_candlestick(self, symbol_path: str, chart_interval: str) -> Any:
         """Fetch raw response body for ``/candlestick/{symbol_path}/{chart_interval}``."""
         path = f"/candlestick/{symbol_path}/{chart_interval}"
+        return self._request_with_retry("GET", path)
+
+    def get_orderbook(self, symbol_path: str) -> Any:
+        """Fetch raw response body for ``/orderbook/{symbol_path}``.
+
+        Returns the full orderbook snapshot including ``bids`` and ``asks`` arrays.
+        Each entry is ``{"price": str, "quantity": str}``.
+        """
+        path = f"/orderbook/{symbol_path}"
         return self._request_with_retry("GET", path)
 
     def get_ticker_all_krw(self) -> Any:
@@ -177,7 +188,7 @@ class BithumbHttpClient:
                 response = self._send(method, path)
                 self._classify(response)
                 return response.json()
-            except (httpx.TimeoutException, httpx.ConnectError, _Transient5xx) as exc:
+            except (httpx.TransportError, _Transient5xx) as exc:
                 last_exc = exc
                 if attempt + 1 >= self._retry.max_attempts:
                     raise BithumbApiError(f"transient failure after {attempt + 1} attempts: {exc}") from exc
