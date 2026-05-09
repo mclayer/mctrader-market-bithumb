@@ -36,31 +36,3 @@ def test_build_subscribe_message_rejects_private_channel() -> None:
             symbol=Symbol(base="BTC", quote="KRW"),
             channels=("user_orders",),  # type: ignore[arg-type]
         )
-
-
-# MCT-104 §D14 — orderbooksnapshot channel (wiretap-confirmed 2026-05-09)
-
-def test_build_subscribe_message_orderbooksnapshot() -> None:
-    """orderbooksnapshot payload must be {type, symbols} — no tick_types field."""
-    msgs = build_subscribe_message(
-        symbol=Symbol(base="BTC", quote="KRW"),
-        channels=("orderbooksnapshot",),
-    )
-    assert len(msgs) == 1
-    msg = msgs[0]
-    assert msg["type"] == "orderbooksnapshot"
-    assert msg["symbols"] == ["BTC_KRW"]
-    assert "tickTypes" not in msg
-
-
-def test_build_subscribe_message_multiplex_all_channels() -> None:
-    """All 4 channels can be combined in one call."""
-    msgs = build_subscribe_message(
-        symbol=Symbol(base="ETH", quote="KRW"),
-        channels=("transaction", "orderbookdepth", "orderbooksnapshot"),
-    )
-    assert len(msgs) == 3
-    types = [m["type"] for m in msgs]
-    assert "transaction" in types
-    assert "orderbookdepth" in types
-    assert "orderbooksnapshot" in types

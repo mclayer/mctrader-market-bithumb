@@ -20,7 +20,7 @@ FORBIDDEN_HEADERS: frozenset[str] = frozenset(
 )
 
 ALLOWED_SUBSCRIBE_TYPES: frozenset[str] = frozenset(
-    {"ticker", "orderbookdepth", "transaction", "orderbooksnapshot"}
+    {"ticker", "orderbookdepth", "transaction"}
 )
 
 FORBIDDEN_SUBSCRIBE_KEYS: frozenset[str] = frozenset(

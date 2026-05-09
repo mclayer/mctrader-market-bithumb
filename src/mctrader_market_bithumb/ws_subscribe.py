@@ -10,7 +10,7 @@ from mctrader_market.types import Symbol
 from mctrader_market_bithumb.mapping import symbol_to_bithumb_path
 from mctrader_market_bithumb.ws_secret_guard import assert_subscribe_payload_safe
 
-Channel = Literal["ticker", "orderbookdepth", "transaction", "orderbooksnapshot"]
+Channel = Literal["ticker", "orderbookdepth", "transaction"]
 
 
 def build_subscribe_message(
