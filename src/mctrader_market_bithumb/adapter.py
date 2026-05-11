@@ -37,7 +37,25 @@ def _parse_envelope(payload: Any) -> list[list]:
 
 
 class BithumbCandleProvider:
-    """Public Bithumb OHLCV provider — eager single-call (MCT-12 7-day 1h scope)."""
+    """Public Bithumb OHLCV provider — eager single-call (MCT-12 7-day 1h scope).
+
+    Retirement note (Epic MCT-112 Story-12, MCT-146, ADR-026):
+
+    cutoff timestamp 이후 (default = ``2026-06-01T00:00:00Z``) candle 영역의 SSOT 는
+    transaction WAL → Compactor → Parquet (Aggregation Core Lib, ADR-025) 로 전환.
+    본 provider 는 **cutoff 이전 historic 영역의 legacy candle backfill 전용** 으로
+    유지 (ADR-026 §D1 "legacy candle 자산 immutable SSOT 유지"). cutoff 이후 호출은
+    ``mctrader-data`` CLI 의 cutoff guard (ADR-026 §D6) 가 차단 — 본 provider 자체는
+    eager fetch 의 thin wrapper 이므로 daemon polling collector 와 별개.
+
+    별도 candle polling collector daemon 은 본 repository 에 부재 — Bithumb WS
+    transaction subscriber (Story-4, MCT-138) 가 cutoff 이후 SSOT 의 ingestion 담당.
+
+    Cross-references:
+
+    - ADR-026 §D1 (legacy immutable SSOT) + §D6 (retirement 절차)
+    - ``mctrader_data.cutoff`` / ``mctrader_data.provenance``
+    """
 
     def __init__(self, client: BithumbHttpClient | None = None) -> None:
         self._client = client or BithumbHttpClient()
