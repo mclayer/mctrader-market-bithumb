@@ -20,6 +20,20 @@ from mctrader_market_bithumb import (
 )
 ```
 
+## Candle collector retirement (ADR-026 / MCT-146)
+
+Epic MCT-112 Story-12 (Transaction SSOT cutover) 후 candle 영역의 SSOT 가 전환됨:
+
+- **cutoff 이전** (default `2026-06-01T00:00:00Z`): `BithumbCandleProvider` eager
+  REST fetch 가 legacy historic backfill 용도로 **영구 보존** (ADR-026 §D1 immutable SSOT).
+- **cutoff 이후**: Bithumb WS transaction subscriber (Story-4, MCT-138) → `mctrader-data`
+  transaction WAL → Compactor → Parquet (Aggregation Core Lib, ADR-025) 가 SSOT.
+  `mctrader-data` CLI 의 cutoff guard (ADR-026 §D6) 가 candle backfill 침투 차단.
+
+본 repository 에 candle polling collector **daemon 은 부재** — `BithumbCandleProvider`
+는 backtest / backfill 시 호출되는 thin REST wrapper. WS transaction subscriber
+(`subscribers/transaction_ws.py`) 가 cutoff 이후 ingestion 의 유일 active path.
+
 ## Public-only enforcement (ADR-008 D5)
 
 - URL allowlist: `https://api.bithumb.com/public` + candlestick path only
